@@ -1,4 +1,4 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
@@ -34,7 +34,7 @@ def list_movements(limit: int = 200, db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=MovementOut, status_code=201)
-def create_movement(body: MovementCreate, tasks: BackgroundTasks, db: Session = Depends(get_db)):
+def create_movement(body: MovementCreate, db: Session = Depends(get_db)):
     variant = db.scalar(
         select(Variant).options(selectinload(Variant.product)).where(Variant.id == body.variant_id)
     )
@@ -72,13 +72,11 @@ def create_movement(body: MovementCreate, tasks: BackgroundTasks, db: Session = 
     db.add(movement)
     db.commit()
 
-    # 출고 후 재고 부족 시 알림 (백그라운드, 무료 채널)
+    # 출고 후 재고 부족 시 알림 (서버리스에서도 유실되지 않도록 동기 전송)
     product = variant.product
     if body.type == "out" and variant.stock <= product.low_stock_threshold:
         label = f"{product.model or ''} {product.name}".strip()
-        tasks.add_task(
-            send_low_stock_alert, label, variant.size, variant.stock, product.low_stock_threshold
-        )
+        send_low_stock_alert(label, variant.size, variant.stock, product.low_stock_threshold)
 
     m = db.scalar(
         select(Movement)

@@ -77,7 +77,10 @@ class Variant(Base):
     stock: Mapped[int] = mapped_column(Integer, default=0)
 
     product: Mapped[Product] = relationship(back_populates="variants")
-    movements: Mapped[list["Movement"]] = relationship(back_populates="variant")
+    # 제품(사이즈) 삭제 시 입출고 기록도 함께 삭제
+    movements: Mapped[list["Movement"]] = relationship(
+        back_populates="variant", cascade="all, delete-orphan"
+    )
 
 
 class ClientPrice(Base):

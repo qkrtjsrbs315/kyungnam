@@ -72,14 +72,28 @@ DATABASE_URL=postgresql+psycopg://USER:PASSWORD@HOST/DBNAME?sslmode=require
 > 접두어를 `postgresql://` 이 아니라 `postgresql+psycopg://` 로 맞춰야 한다.
 > 서버 재시작 시 테이블이 자동 생성된다.
 
-## Vercel 배포 (프론트엔드)
+## 배포 - Vercel 프로젝트 2개 + Neon
 
-1. GitHub 저장소를 Vercel 에서 Import
-2. **Root Directory** 를 `frontend` 로 지정
-3. 환경 변수 `NEXT_PUBLIC_API_URL` 에 배포된 백엔드 주소 입력
+별도 서버 호스팅 없이 Vercel(프론트 + 백엔드 서버리스)과 Neon(DB)만 사용한다.
 
-백엔드는 Render / Railway / Fly.io 등 무료 티어에 배포할 수 있다.
-배포 후 `backend/.env` 의 `FRONTEND_ORIGINS` 에 Vercel 주소를 추가해 CORS 를 허용한다.
+### 프론트엔드 프로젝트
+
+1. Vercel 에서 저장소 Import, **Root Directory = `frontend`**
+2. 환경 변수 `NEXT_PUBLIC_API_URL` = 백엔드 프로젝트 주소 (아래에서 발급)
+
+### 백엔드 프로젝트 (FastAPI 서버리스)
+
+1. Vercel 에서 **같은 저장소를 한 번 더 Import** (New Project),
+   프로젝트명 예: `kyungnam-api`, **Root Directory = `backend`**
+   - `backend/api/index.py` 와 `backend/vercel.json` 이 진입점이다 (자동 인식)
+2. 환경 변수:
+   - `DATABASE_URL` = Neon 연결 문자열 (**pooled** 주소 권장 - 호스트에 `-pooler` 가 붙은 것)
+   - `FRONTEND_ORIGINS` = 프론트 Vercel 주소 (쉼표 구분, 예: `https://kyungnam.vercel.app,http://localhost:3000`)
+   - (FCM 사용 시) `FIREBASE_CREDENTIALS_JSON` = 서비스 계정 json 내용 전체 한 줄
+3. Deploy 후 `https://kyungnam-api.vercel.app/docs` 가 열리면 성공.
+   첫 요청(콜드 스타트) 시 Neon 에 테이블이 자동 생성된다.
+
+마지막으로 프론트 프로젝트의 `NEXT_PUBLIC_API_URL` 에 백엔드 주소를 넣고 **Redeploy** 한다.
 
 ## 재고 부족 푸시 알림 (Firebase FCM)
 

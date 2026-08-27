@@ -23,17 +23,22 @@ _firebase_app = None
 
 
 def get_firebase():
-    """FIREBASE_CREDENTIALS 가 설정된 경우에만 firebase_admin 초기화 (1회)."""
+    """FIREBASE_CREDENTIALS(_JSON) 가 설정된 경우에만 firebase_admin 초기화 (1회)."""
     global _firebase_app
-    if _firebase_app is None and settings.firebase_credentials:
+    if _firebase_app is None and (settings.firebase_credentials or settings.firebase_credentials_json):
         try:
+            import json
+
             import firebase_admin
             from firebase_admin import credentials
 
-            cred = credentials.Certificate(settings.firebase_credentials)
+            if settings.firebase_credentials_json:
+                cred = credentials.Certificate(json.loads(settings.firebase_credentials_json))
+            else:
+                cred = credentials.Certificate(settings.firebase_credentials)
             _firebase_app = firebase_admin.initialize_app(cred)
         except Exception:
-            logger.exception("Firebase 초기화 실패 - FIREBASE_CREDENTIALS 경로를 확인해주세요.")
+            logger.exception("Firebase 초기화 실패 - FIREBASE_CREDENTIALS(_JSON) 설정을 확인해주세요.")
     return _firebase_app
 
 

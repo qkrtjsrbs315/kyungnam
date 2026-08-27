@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     # 재고 부족 알림 - Firebase Cloud Messaging (FCM)
     # Firebase 콘솔 > 프로젝트 설정 > 서비스 계정 > 새 비공개 키 생성 → json 파일 경로
     firebase_credentials: str = ""
+    # 파일을 둘 수 없는 서버리스(Vercel) 환경용: json 내용 전체를 환경변수로
+    firebase_credentials_json: str = ""
 
     # 재고 부족 알림 - ntfy.sh 무료 푸시 (토픽명만 정하면 앱에서 구독 가능)
     ntfy_topic: str = ""

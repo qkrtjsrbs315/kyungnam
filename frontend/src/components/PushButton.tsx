@@ -33,9 +33,11 @@ export default function PushButton() {
 
   async function sendTest() {
     try {
-      const r = await api<{ sent: number }>("/notifications/test", { method: "POST" });
+      const r = await api<{ sent: number; errors?: string[] }>("/notifications/test", { method: "POST" });
       if (r.sent === 0) {
-        alert("발송된 알림이 없습니다. 백엔드 FIREBASE_CREDENTIALS 설정과 토큰 등록을 확인해주세요.");
+        alert("발송 실패:\n" + (r.errors?.join("\n") || "백엔드 설정과 토큰 등록을 확인해주세요."));
+      } else if (r.errors && r.errors.length > 0) {
+        alert(`${r.sent}건 발송 성공, 일부 실패:\n` + r.errors.join("\n"));
       }
     } catch (e) {
       alert((e as Error).message);

@@ -42,11 +42,11 @@ def get_firebase():
     return _firebase_app
 
 
-def send_fcm(title: str, body: str) -> int:
-    """등록된 모든 기기 토큰으로 FCM 푸시 발송. 발송 성공 수를 반환한다."""
+def send_fcm(title: str, body: str) -> tuple[int, list[str]]:
+    """등록된 모든 기기 토큰으로 FCM 푸시 발송. (성공 수, 에러 목록)을 반환한다."""
     app = get_firebase()
     if not app:
-        return 0
+        return 0, ["Firebase 미설정 (FIREBASE_CREDENTIALS(_JSON) 확인)"]
     from firebase_admin import messaging
 
     from .database import SessionLocal
@@ -55,7 +55,7 @@ def send_fcm(title: str, body: str) -> int:
     with SessionLocal() as db:
         tokens = list(db.scalars(select(DeviceToken.token)).all())
         if not tokens:
-            return 0
+            return 0, ["등록된 기기 토큰이 없습니다."]
         message = messaging.MulticastMessage(
             tokens=tokens,
             notification=messaging.Notification(title=title, body=body),
@@ -66,9 +66,14 @@ def send_fcm(title: str, body: str) -> int:
         )
         try:
             resp = messaging.send_each_for_multicast(message, app=app)
-        except Exception:
+        except Exception as e:
             logger.exception("FCM 발송 실패")
-            return 0
+            return 0, [f"{type(e).__name__}: {e}"]
+        errors = [
+            f"{type(r.exception).__name__}: {r.exception}"
+            for r in resp.responses
+            if not r.success
+        ]
         # 앱 삭제 등으로 무효해진 토큰은 정리한다
         stale = [
             t
@@ -78,7 +83,7 @@ def send_fcm(title: str, body: str) -> int:
         if stale:
             db.execute(delete(DeviceToken).where(DeviceToken.token.in_(stale)))
             db.commit()
-        return resp.success_count
+        return resp.success_count, errors
 
 
 def send_low_stock_alert(product_label: str, size: str, stock: int, threshold: int) -> None:

@@ -42,6 +42,6 @@ def register_token(body: TokenIn, db: Session = Depends(get_db)):
 
 @router.post("/test")
 def send_test(db: Session = Depends(get_db)):
-    """등록된 모든 기기로 테스트 푸시 발송."""
-    sent = send_fcm("테스트 알림", "경남산업 재고관리 푸시 알림이 정상 동작합니다.")
-    return {"sent": sent}
+    """등록된 모든 기기로 테스트 푸시 발송. 실패 시 원인도 반환한다."""
+    sent, errors = send_fcm("테스트 알림", "경남산업 재고관리 푸시 알림이 정상 동작합니다.")
+    return {"sent": sent, "errors": errors}

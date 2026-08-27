@@ -1,0 +1,6 @@
+# Python (backend)
+backend/kyungnam/
+backend/dev.db
+backend/.env
+__pycache__/
+*.pyc

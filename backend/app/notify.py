@@ -56,12 +56,17 @@ def send_fcm(title: str, body: str) -> tuple[int, list[str]]:
         tokens = list(db.scalars(select(DeviceToken.token)).all())
         if not tokens:
             return 0, ["등록된 기기 토큰이 없습니다."]
+        # 알림 클릭 시 열 주소: FRONTEND_ORIGINS 중 첫 https 주소 (없으면 링크 생략)
+        link = next(
+            (o.strip() for o in settings.frontend_origins.split(",") if o.strip().startswith("https://")),
+            None,
+        )
         message = messaging.MulticastMessage(
             tokens=tokens,
             notification=messaging.Notification(title=title, body=body),
             webpush=messaging.WebpushConfig(
                 notification=messaging.WebpushNotification(title=title, body=body),
-                fcm_options=messaging.WebpushFCMOptions(link="/"),
+                fcm_options=messaging.WebpushFCMOptions(link=link) if link else None,
             ),
         )
         try:

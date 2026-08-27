@@ -7,7 +7,7 @@ from sqlalchemy import select
 from .config import settings
 from .database import Base, SessionLocal, engine
 from .models import Brand
-from .routers import brands, clients, movements, products, stats
+from .routers import brands, clients, movements, notifications, products, stats
 
 DEFAULT_BRANDS = ["에어워크", "엘에이기어"]
 
@@ -40,6 +40,7 @@ app.include_router(products.router)
 app.include_router(movements.router)
 app.include_router(clients.router)
 app.include_router(stats.router)
+app.include_router(notifications.router)
 
 
 @app.get("/")

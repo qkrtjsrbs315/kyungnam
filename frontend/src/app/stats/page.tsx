@@ -1,12 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { api, OutboundRow } from "@/lib/api";
+import { api, MonthlyRow, OutboundRow } from "@/lib/api";
+import MonthlyChart from "@/components/MonthlyChart";
 
 export default function StatsPage() {
   const [period, setPeriod] = useState<"daily" | "monthly">("daily");
   const [rows, setRows] = useState<OutboundRow[]>([]);
+  const [monthly, setMonthly] = useState<MonthlyRow[]>([]);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    api<MonthlyRow[]>("/stats/monthly").then(setMonthly).catch(() => setMonthly([]));
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -47,6 +53,11 @@ export default function StatsPage() {
             </button>
           ))}
         </div>
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-4">
+        <h3 className="font-extrabold mb-4">월별 입고·출고·반품 (최근 12개월)</h3>
+        <MonthlyChart rows={monthly} />
       </div>
 
       {loading ? (

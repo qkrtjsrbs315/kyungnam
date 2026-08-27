@@ -5,3 +5,5 @@ psycopg[binary]
 pydantic-settings
 python-dotenv
 httpx
+firebase-admin
+python-multipart

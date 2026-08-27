@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import DateTime, ForeignKey, Integer, LargeBinary, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -47,11 +47,18 @@ class Product(Base):
     work_type: Mapped[str | None] = mapped_column(String(10))  # 신발: 'light'(경작업용) | 'normal'(보통작업용)
     item_type: Mapped[str | None] = mapped_column(String(50))  # 용품: 옷, 스카프 등
     image_url: Mapped[str | None] = mapped_column(Text)
+    # 업로드 이미지는 DB(Neon)에 직접 저장한다. 목록 조회 시 blob 을 안 읽도록 deferred.
+    image_data: Mapped[bytes | None] = mapped_column(LargeBinary, deferred=True)
+    image_mime: Mapped[str | None] = mapped_column(String(50))
     low_stock_threshold: Mapped[int] = mapped_column(Integer, default=10)
     brand_id: Mapped[int | None] = mapped_column(ForeignKey("brands.id", ondelete="SET NULL"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     brand: Mapped[Brand | None] = relationship(back_populates="products")
+
+    @property
+    def has_image(self) -> bool:
+        return self.image_mime is not None
     variants: Mapped[list["Variant"]] = relationship(
         back_populates="product", cascade="all, delete-orphan", order_by="Variant.id"
     )
@@ -86,6 +93,16 @@ class ClientPrice(Base):
 
     client: Mapped[Client] = relationship(back_populates="prices")
     product: Mapped[Product] = relationship(back_populates="prices")
+
+
+class DeviceToken(Base):
+    """FCM 푸시 알림 기기 토큰"""
+
+    __tablename__ = "device_tokens"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    token: Mapped[str] = mapped_column(String(512), unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class Movement(Base):

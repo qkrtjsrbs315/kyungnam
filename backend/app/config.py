@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     # CORS 허용 프론트엔드 주소 (쉼표 구분)
     frontend_origins: str = "http://localhost:3000"
 
+    # 재고 부족 알림 - Firebase Cloud Messaging (FCM)
+    # Firebase 콘솔 > 프로젝트 설정 > 서비스 계정 > 새 비공개 키 생성 → json 파일 경로
+    firebase_credentials: str = ""
+
     # 재고 부족 알림 - ntfy.sh 무료 푸시 (토픽명만 정하면 앱에서 구독 가능)
     ntfy_topic: str = ""
 

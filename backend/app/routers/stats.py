@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import Client, Movement, Product, Variant
-from ..schemas import ClientSalesRow, DashboardOut, OutboundRow
+from ..schemas import ClientSalesRow, DashboardOut, MonthlyRow, OutboundRow
 
 router = APIRouter(prefix="/stats", tags=["stats"])
 
@@ -34,6 +34,32 @@ def dashboard(db: Session = Depends(get_db)):
         low_stock_count=low_stock_count,
         today_movements=today_movements,
     )
+
+
+@router.get("/monthly", response_model=list[MonthlyRow])
+def monthly(months: int = 12, db: Session = Depends(get_db)):
+    """월별 입고/출고/반품 총수량 (세로 막대그래프용, 최근 N개월)"""
+    since = datetime.combine(date.today().replace(day=1) - timedelta(days=31 * (months - 1)), time.min)
+    since = since.replace(day=1)
+
+    dialect = db.get_bind().dialect.name
+    if dialect == "sqlite":
+        month_expr = func.strftime("%Y-%m", Movement.created_at)
+    else:
+        month_expr = func.to_char(Movement.created_at, "YYYY-MM")
+
+    rows = db.execute(
+        select(
+            month_expr.label("month"),
+            func.coalesce(func.sum(case((Movement.type == "in", Movement.qty), else_=0)), 0),
+            func.coalesce(func.sum(case((Movement.type == "out", Movement.qty), else_=0)), 0),
+            func.coalesce(func.sum(case((Movement.type == "return", Movement.qty), else_=0)), 0),
+        )
+        .where(Movement.created_at >= since)
+        .group_by("month")
+        .order_by(month_expr)
+    ).all()
+    return [MonthlyRow(month=r[0], in_qty=r[1], out_qty=r[2], return_qty=r[3]) for r in rows]
 
 
 @router.get("/outbound", response_model=list[OutboundRow])

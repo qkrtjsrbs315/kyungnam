@@ -6,8 +6,10 @@ import {
   Brand,
   GOODS_SIZES,
   Product,
+  productImageSrc,
   productLabel,
   SHOE_SIZES,
+  uploadProductImage,
   WORK_TYPE_LABEL,
 } from "@/lib/api";
 
@@ -33,6 +35,7 @@ export default function ProductsPage() {
   const [stocks, setStocks] = useState<Record<string, number>>({});
   const [newBrand, setNewBrand] = useState("");
   const [saving, setSaving] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
 
   const load = useCallback(() => {
     api<Product[]>("/products").then(setProducts).catch(() => {});
@@ -72,7 +75,7 @@ export default function ProductsPage() {
     }
     setSaving(true);
     try {
-      await api<Product>("/products", {
+      const created = await api<Product>("/products", {
         method: "POST",
         body: JSON.stringify({
           category: form.category,
@@ -87,9 +90,11 @@ export default function ProductsPage() {
           initial_stocks: stocks,
         }),
       });
+      if (imageFile) await uploadProductImage(created.id, imageFile);
       setShowModal(false);
       setForm(EMPTY_FORM);
       setStocks({});
+      setImageFile(null);
       load();
     } catch (e) {
       alert((e as Error).message);
@@ -103,6 +108,16 @@ export default function ProductsPage() {
     await api(`/products/${p.id}`, { method: "DELETE" });
     setSelected(null);
     load();
+  }
+
+  async function changeImage(p: Product, file: File) {
+    try {
+      const updated = await uploadProductImage(p.id, file);
+      setSelected(updated);
+      load();
+    } catch (e) {
+      alert((e as Error).message);
+    }
   }
 
   const input = "w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm bg-white";
@@ -185,10 +200,29 @@ export default function ProductsPage() {
               : `품목 ${selected.item_type ?? "-"}`}{" "}
             · 색상 {selected.color ?? "-"} · 부족재고 기준 {selected.low_stock_threshold}개 이하
           </p>
-          {selected.image_url && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={selected.image_url} alt={selected.name} className="max-h-40 rounded-xl border border-gray-200 mb-4" />
-          )}
+          <div className="flex items-end gap-3 mb-4">
+            {productImageSrc(selected) && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={productImageSrc(selected)!}
+                alt={selected.name}
+                className="max-h-40 rounded-xl border border-gray-200"
+              />
+            )}
+            <label className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-bold cursor-pointer hover:bg-gray-50">
+              {productImageSrc(selected) ? "이미지 변경" : "이미지 업로드"}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) changeImage(selected, f);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+          </div>
           <div className="overflow-x-auto">
             <table className="min-w-[640px] w-full text-sm text-center">
               <thead>
@@ -328,7 +362,16 @@ export default function ProductsPage() {
                   onChange={(e) => setForm((f) => ({ ...f, low_stock_threshold: Number(e.target.value) || 0 }))}
                 />
               </div>
-              <div className="md:col-span-2">
+              <div>
+                <label className={labelCls}>이미지 파일 (선택)</label>
+                <input
+                  className={`${input} file:mr-2 file:rounded file:border-0 file:bg-gray-100 file:px-2 file:py-1 file:text-xs file:font-bold`}
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
+                />
+              </div>
+              <div>
                 <label className={labelCls}>이미지 URL (선택)</label>
                 <input
                   className={input}

@@ -1,9 +1,11 @@
-"""재고 부족 알림 - 무료 채널 위주.
+"""재고 부족 알림.
 
-1) ntfy.sh 푸시: 서버에서 토픽으로 POST만 하면 핸드폰 ntfy 앱(무료)에서 즉시 푸시 수신.
+1) Firebase Cloud Messaging(FCM) 푸시: 프론트에서 알림을 켠 기기(등록된 토큰)로 발송.
+   .env 의 FIREBASE_CREDENTIALS 에 서비스 계정 json 경로를 설정하면 동작한다.
+2) ntfy.sh 푸시: 서버에서 토픽으로 POST만 하면 핸드폰 ntfy 앱(무료)에서 즉시 푸시 수신.
    가입/키 발급 불필요. .env 의 NTFY_TOPIC 만 설정하면 동작한다.
-2) 이메일(SMTP): Gmail 앱 비밀번호 등으로 무료 발송 가능. SMTP_* 설정 시 동작.
-둘 다 미설정이면 조용히 건너뛴다(앱 동작에는 영향 없음).
+3) 이메일(SMTP): Gmail 앱 비밀번호 등으로 무료 발송 가능. SMTP_* 설정 시 동작.
+모두 미설정이면 조용히 건너뛴다(앱 동작에는 영향 없음).
 """
 
 import logging
@@ -11,15 +13,77 @@ import smtplib
 from email.mime.text import MIMEText
 
 import httpx
+from sqlalchemy import delete, select
 
 from .config import settings
 
 logger = logging.getLogger(__name__)
 
+_firebase_app = None
+
+
+def get_firebase():
+    """FIREBASE_CREDENTIALS 가 설정된 경우에만 firebase_admin 초기화 (1회)."""
+    global _firebase_app
+    if _firebase_app is None and settings.firebase_credentials:
+        try:
+            import firebase_admin
+            from firebase_admin import credentials
+
+            cred = credentials.Certificate(settings.firebase_credentials)
+            _firebase_app = firebase_admin.initialize_app(cred)
+        except Exception:
+            logger.exception("Firebase 초기화 실패 - FIREBASE_CREDENTIALS 경로를 확인해주세요.")
+    return _firebase_app
+
+
+def send_fcm(title: str, body: str) -> int:
+    """등록된 모든 기기 토큰으로 FCM 푸시 발송. 발송 성공 수를 반환한다."""
+    app = get_firebase()
+    if not app:
+        return 0
+    from firebase_admin import messaging
+
+    from .database import SessionLocal
+    from .models import DeviceToken
+
+    with SessionLocal() as db:
+        tokens = list(db.scalars(select(DeviceToken.token)).all())
+        if not tokens:
+            return 0
+        message = messaging.MulticastMessage(
+            tokens=tokens,
+            notification=messaging.Notification(title=title, body=body),
+            webpush=messaging.WebpushConfig(
+                notification=messaging.WebpushNotification(title=title, body=body),
+                fcm_options=messaging.WebpushFCMOptions(link="/"),
+            ),
+        )
+        try:
+            resp = messaging.send_each_for_multicast(message, app=app)
+        except Exception:
+            logger.exception("FCM 발송 실패")
+            return 0
+        # 앱 삭제 등으로 무효해진 토큰은 정리한다
+        stale = [
+            t
+            for r, t in zip(resp.responses, tokens)
+            if not r.success and isinstance(r.exception, messaging.UnregisteredError)
+        ]
+        if stale:
+            db.execute(delete(DeviceToken).where(DeviceToken.token.in_(stale)))
+            db.commit()
+        return resp.success_count
+
 
 def send_low_stock_alert(product_label: str, size: str, stock: int, threshold: int) -> None:
     title = "재고 부족 알림"
     body = f"{product_label} {size} 재고가 {stock}개 남았습니다. (기준 {threshold}개 이하)"
+
+    try:
+        send_fcm(title, body)
+    except Exception:
+        logger.exception("FCM 알림 전송 실패")
 
     if settings.ntfy_topic:
         try:

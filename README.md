@@ -81,9 +81,44 @@ DATABASE_URL=postgresql+psycopg://USER:PASSWORD@HOST/DBNAME?sslmode=require
 백엔드는 Render / Railway / Fly.io 등 무료 티어에 배포할 수 있다.
 배포 후 `backend/.env` 의 `FRONTEND_ORIGINS` 에 Vercel 주소를 추가해 CORS 를 허용한다.
 
-## 재고 부족 알림 (무료)
+## 재고 부족 푸시 알림 (Firebase FCM)
 
-출고 후 재고가 기준 수량 이하로 떨어지면 알림을 보낸다.
+출고 후 재고가 기준 수량 이하로 떨어지면 등록된 기기로 푸시 알림을 보낸다.
 
-- **ntfy 푸시(권장)**: 핸드폰에 ntfy 앱 설치 → 원하는 토픽명 구독 → `backend/.env` 에 `NTFY_TOPIC=토픽명` 설정. 가입·비용 없음.
+### Firebase 설정 절차
+
+1. https://console.firebase.google.com 에서 프로젝트 생성 (무료 Spark 요금제면 충분)
+2. **웹 앱 추가** (프로젝트 설정 > 일반 > 내 앱 > 웹) → SDK 구성값을
+   `frontend/.env.local` 의 `NEXT_PUBLIC_FIREBASE_*` 에 입력
+3. 프로젝트 설정 > **클라우드 메시징** > 웹 푸시 인증서에서 키 쌍 생성 →
+   `NEXT_PUBLIC_FIREBASE_VAPID_KEY` 에 입력
+4. 프로젝트 설정 > **서비스 계정** > 새 비공개 키 생성 → 다운로드한 json 을
+   `backend/serviceAccountKey.json` 으로 저장하고 `backend/.env` 에
+   `FIREBASE_CREDENTIALS=serviceAccountKey.json` 설정 (git 에는 올라가지 않음)
+5. 프론트 왼쪽 메뉴의 **"푸시 알림 켜기"** 버튼 → 권한 허용 → "테스트 발송"으로 확인
+
+> 아이폰은 Safari 에서 **홈 화면에 추가**한 뒤에만 웹 푸시를 받을 수 있다(iOS 16.4+).
+> 안드로이드 Chrome 은 바로 동작한다.
+
+### 보조 채널 (선택)
+
+- **ntfy 푸시**: 핸드폰에 ntfy 앱 설치 → 토픽 구독 → `backend/.env` 에 `NTFY_TOPIC=토픽명`. 가입·비용 없음.
 - **이메일**: `.env` 에 SMTP 정보 입력 (Gmail 앱 비밀번호 사용 가능).
+
+## 제품 이미지
+
+업로드한 이미지는 별도 스토리지 없이 **DB(Neon)에 바이너리로 저장**된다.
+업로드 전에 프론트에서 긴 변 1000px JPEG 로 리사이즈하므로 장당 100~200KB 수준 -
+Neon 무료 용량(0.5GB)으로 수천 장을 담을 수 있다.
+`GET /products/{id}/image` 로 서빙되며 외부 이미지 URL 입력도 계속 지원한다.
+
+## 데모 데이터
+
+로컬에서 화면을 채워 보고 싶다면:
+
+```powershell
+cd backend
+.\kyungnam\Scripts\python.exe seed_demo.py   # 12개월치 입출고 데모 데이터 생성
+```
+
+초기화하려면 `backend/dev.db` 파일을 삭제하면 된다 (Neon 연결 시엔 사용되지 않음).

@@ -83,6 +83,7 @@ class ProductOut(ORMModel):
     work_type: str | None
     item_type: str | None
     image_url: str | None
+    has_image: bool = False  # DB에 업로드 이미지 존재 여부 (GET /products/{id}/image 로 서빙)
     low_stock_threshold: int
     brand: BrandOut | None
     variants: list[VariantOut]
@@ -114,6 +115,15 @@ class MovementOut(ORMModel):
 
 
 # ---------- 통계 ----------
+class MonthlyRow(BaseModel):
+    """월별 입고/출고/반품 수량 (막대그래프용)"""
+
+    month: str  # '2026-08'
+    in_qty: int
+    out_qty: int
+    return_qty: int
+
+
 class OutboundRow(BaseModel):
     period: str  # '2026-08-27' 또는 '2026-08'
     product_id: int

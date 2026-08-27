@@ -65,6 +65,14 @@ export type NotificationStatus = {
   ntfy_configured: boolean;
   token_count: number;
 };
+export type SalesRow = {
+  period: string; // '2026-08-27' / '2026-W35' / '2026-08'
+  key: string; // 제품 / 사이즈 / 색상
+  out_qty: number;
+  out_amount: number;
+  return_qty: number;
+  return_amount: number;
+};
 
 export const MOVE_LABEL: Record<Movement["type"], string> = {
   in: "입고",
@@ -78,12 +86,27 @@ export const WORK_TYPE_LABEL: Record<string, string> = {
 export const SHOE_SIZES = Array.from({ length: 15 }, (_, i) => String(230 + i * 5));
 export const GOODS_SIZES = ["S", "M", "L"];
 
+function authHeader(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  try {
+    const token = localStorage.getItem("gn_token");
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    return {};
+  }
+}
+
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     ...init,
-    headers: { "Content-Type": "application/json", ...init?.headers },
+    headers: { "Content-Type": "application/json", ...authHeader(), ...init?.headers },
     cache: "no-store",
   });
+  // 로그인 만료/미로그인 → 로그인 페이지로
+  if (res.status === 401 && typeof window !== "undefined" && !path.startsWith("/auth/login")) {
+    localStorage.removeItem("gn_token");
+    window.location.href = "/login";
+  }
   if (!res.ok) {
     let detail = res.statusText;
     try {
@@ -143,7 +166,11 @@ export async function uploadProductImage(productId: number, file: File): Promise
   const blob = await resizeImage(file);
   const form = new FormData();
   form.append("file", blob, "product.jpg");
-  const res = await fetch(`${API_BASE}/products/${productId}/image`, { method: "POST", body: form });
+  const res = await fetch(`${API_BASE}/products/${productId}/image`, {
+    method: "POST",
+    headers: authHeader(),
+    body: form,
+  });
   if (!res.ok) throw new Error("이미지 업로드에 실패했습니다.");
   return res.json();
 }

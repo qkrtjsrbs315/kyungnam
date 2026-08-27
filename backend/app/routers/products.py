@@ -10,6 +10,8 @@ from ..schemas import ProductCreate, ProductOut, ProductUpdate
 MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5MB (프론트에서 리사이즈 후 업로드)
 
 router = APIRouter(prefix="/products", tags=["products"])
+# 이미지 조회는 <img src> 로 불러서 Authorization 헤더를 못 붙이므로 인증 없이 공개
+image_router = APIRouter(prefix="/products", tags=["products"])
 
 
 def _product_query():
@@ -93,7 +95,7 @@ async def upload_image(product_id: int, file: UploadFile = File(...), db: Sessio
     return db.scalar(_product_query().where(Product.id == product_id))
 
 
-@router.get("/{product_id}/image")
+@image_router.get("/{product_id}/image")
 def get_image(product_id: int, db: Session = Depends(get_db)):
     product = db.scalar(
         select(Product).options(undefer(Product.image_data)).where(Product.id == product_id)

@@ -115,6 +115,17 @@ class MovementOut(ORMModel):
 
 
 # ---------- 통계 ----------
+class SalesRow(BaseModel):
+    """매출 현황 (기간 × 분류기준별 판매수량/매출액)"""
+
+    period: str  # '2026-08-27' / '2026-W35' / '2026-08'
+    key: str  # 제품명 / 사이즈 / 색상
+    out_qty: int
+    out_amount: int
+    return_qty: int
+    return_amount: int
+
+
 class MonthlyRow(BaseModel):
     """월별 입고/출고/반품 수량 (막대그래프용)"""
 

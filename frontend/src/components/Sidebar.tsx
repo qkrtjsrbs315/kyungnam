@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import PushButton from "./PushButton";
+import AccountBox from "./AccountBox";
 
 const NAV = [
   { href: "/", label: "대시보드" },
@@ -10,6 +11,7 @@ const NAV = [
   { href: "/movements", label: "입고·출고" },
   { href: "/history", label: "입출고 내역" },
   { href: "/clients", label: "거래처" },
+  { href: "/sales", label: "매출 현황" },
   { href: "/stats", label: "출고 통계" },
 ];
 
@@ -37,6 +39,7 @@ export default function Sidebar() {
           })}
         </nav>
         <PushButton />
+        <AccountBox />
       </div>
     </aside>
   );

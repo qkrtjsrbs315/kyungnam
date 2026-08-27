@@ -98,6 +98,17 @@ class ClientPrice(Base):
     product: Mapped[Product] = relationship(back_populates="prices")
 
 
+class User(Base):
+    """로그인 사용자"""
+
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str] = mapped_column(String(50), unique=True)
+    password_hash: Mapped[str] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class DeviceToken(Base):
     """FCM 푸시 알림 기기 토큰"""
 

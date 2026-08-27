@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Noto_Sans_KR } from "next/font/google";
 import "./globals.css";
-import Sidebar from "@/components/Sidebar";
+import AppShell from "@/components/AppShell";
 
 const notoSansKr = Noto_Sans_KR({ subsets: ["latin"], weight: ["400", "500", "700", "800"] });
 
@@ -14,10 +14,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="ko">
       <body className={notoSansKr.className}>
-        <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] min-h-screen">
-          <Sidebar />
-          <main className="p-5 md:p-7 overflow-auto">{children}</main>
-        </div>
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

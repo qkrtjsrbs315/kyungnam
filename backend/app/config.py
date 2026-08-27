@@ -11,6 +11,11 @@ class Settings(BaseSettings):
     # CORS 허용 프론트엔드 주소 (쉼표 구분)
     frontend_origins: str = "http://localhost:3000"
 
+    # 로그인 토큰(JWT) 서명 키 - 배포 시 반드시 긴 무작위 문자열로 교체
+    secret_key: str = "kyungnam-dev-secret-change-me"
+    # 최초 생성되는 admin 계정 비밀번호 (users 테이블이 비어있을 때 1회만 사용)
+    admin_initial_password: str = "kyungnam1234"
+
     # 재고 부족 알림 - Firebase Cloud Messaging (FCM)
     # Firebase 콘솔 > 프로젝트 설정 > 서비스 계정 > 새 비공개 키 생성 → json 파일 경로
     firebase_credentials: str = ""

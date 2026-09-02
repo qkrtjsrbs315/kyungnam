@@ -25,6 +25,12 @@ class ClientCreate(BaseModel):
     memo: str | None = None
 
 
+class ClientUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    contact: str | None = None
+    memo: str | None = None
+
+
 class ClientOut(ORMModel):
     id: int
     name: str
@@ -59,6 +65,8 @@ class ProductCreate(BaseModel):
     item_type: str | None = None  # 용품 전용
     image_url: str | None = None
     low_stock_threshold: int = Field(default=10, ge=0)
+    base_price: int | None = Field(default=None, ge=0)  # 대리점가
+    memo: str | None = None
     brand_id: int | None = None
     initial_stocks: dict[str, int] = Field(default_factory=dict)  # {"250": 10, ...}
 
@@ -71,6 +79,8 @@ class ProductUpdate(BaseModel):
     item_type: str | None = None
     image_url: str | None = None
     low_stock_threshold: int | None = Field(default=None, ge=0)
+    base_price: int | None = Field(default=None, ge=0)
+    memo: str | None = None
     brand_id: int | None = None
 
 
@@ -85,6 +95,8 @@ class ProductOut(ORMModel):
     image_url: str | None
     has_image: bool = False  # DB에 업로드 이미지 존재 여부 (GET /products/{id}/image 로 서빙)
     low_stock_threshold: int
+    base_price: int | None
+    memo: str | None
     brand: BrandOut | None
     variants: list[VariantOut]
 
@@ -94,6 +106,17 @@ class MovementCreate(BaseModel):
     type: Literal["in", "out", "return"]
     variant_id: int
     qty: int = Field(ge=1)
+    client_id: int | None = None
+    unit_price: int | None = Field(default=None, ge=0)
+    memo: str | None = None
+
+
+class MovementUpdate(BaseModel):
+    """입출고 내역 수정 - 전달된 필드만 반영, 재고는 차이만큼 재계산"""
+
+    type: Literal["in", "out", "return"] | None = None
+    variant_id: int | None = None
+    qty: int | None = Field(default=None, ge=1)
     client_id: int | None = None
     unit_price: int | None = Field(default=None, ge=0)
     memo: str | None = None

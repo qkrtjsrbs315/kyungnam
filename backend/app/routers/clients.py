@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import Client, ClientPrice
-from ..schemas import ClientCreate, ClientOut, ClientPriceOut, ClientPriceSet
+from ..schemas import ClientCreate, ClientOut, ClientPriceOut, ClientPriceSet, ClientUpdate
 
 router = APIRouter(prefix="/clients", tags=["clients"])
 
@@ -20,6 +20,23 @@ def create_client(body: ClientCreate, db: Session = Depends(get_db)):
         raise HTTPException(409, "이미 존재하는 거래처입니다.")
     client = Client(**body.model_dump())
     db.add(client)
+    db.commit()
+    db.refresh(client)
+    return client
+
+
+@router.patch("/{client_id}", response_model=ClientOut)
+def update_client(client_id: int, body: ClientUpdate, db: Session = Depends(get_db)):
+    client = db.get(Client, client_id)
+    if not client:
+        raise HTTPException(404, "거래처를 찾을 수 없습니다.")
+    data = body.model_dump(exclude_unset=True)
+    new_name = data.get("name")
+    if new_name and new_name != client.name:
+        if db.scalar(select(Client).where(Client.name == new_name, Client.id != client_id)):
+            raise HTTPException(409, "이미 존재하는 거래처명입니다.")
+    for field, value in data.items():
+        setattr(client, field, value)
     db.commit()
     db.refresh(client)
     return client

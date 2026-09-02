@@ -15,6 +15,8 @@ export type Product = {
   image_url: string | null;
   has_image: boolean;
   low_stock_threshold: number;
+  base_price: number | null; // 대리점가
+  memo: string | null;
   brand: Brand | null;
   variants: Variant[];
 };
@@ -160,6 +162,20 @@ export function resizeImage(file: File, maxDim = 1000): Promise<Blob> {
     };
     img.src = url;
   });
+}
+
+/** 재고 현황 엑셀 다운로드 (인증 헤더가 필요해 fetch → blob 저장 방식 사용) */
+export async function downloadInventoryExcel(): Promise<void> {
+  const res = await fetch(`${API_BASE}/products/export.xlsx`, { headers: authHeader() });
+  if (!res.ok) throw new Error("엑셀 다운로드에 실패했습니다.");
+  const blob = await res.blob();
+  const today = new Date();
+  const ymd = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, "0")}${String(today.getDate()).padStart(2, "0")}`;
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `경남산업_재고현황_${ymd}.xlsx`;
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 export async function uploadProductImage(productId: number, file: File): Promise<Product> {

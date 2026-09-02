@@ -28,6 +28,58 @@ def list_products(category: str | None = None, db: Session = Depends(get_db)):
     return db.scalars(q).all()
 
 
+@router.get("/export.xlsx")
+def export_excel(db: Session = Depends(get_db)):
+    """재고 현황 엑셀 다운로드 - 경남산업_LAGEAR_재고.xlsx 양식.
+    품명 | 사이즈 | 대리점가 | 재고 | 판매 수량 | 현재재고(수식) | 재고 가치(수식)"""
+    import io as _io
+    from datetime import date as _date
+
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font
+
+    products = db.scalars(
+        _product_query().order_by(Product.category, Product.model, Product.name)
+    ).all()
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Sheet1"
+    ws.append(["품명", "사이즈", "대리점가", "재고", "판매 수량", "현재재고", "재고 가치"])
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+        cell.alignment = Alignment(horizontal="center")
+
+    row = 2
+    for p in products:
+        label = p.model or p.name
+        for i, v in enumerate(p.variants):
+            size: int | str = int(v.size) if v.size.isdigit() else v.size
+            ws.append([
+                label if i == 0 else None,
+                size,
+                p.base_price,
+                v.stock,
+                None,
+                f"=D{row}-E{row}",
+                f"=F{row}*C{row}",
+            ])
+            row += 1
+
+    widths = {"A": 14, "B": 8, "C": 10, "D": 8, "E": 10, "F": 10, "G": 12}
+    for col, w in widths.items():
+        ws.column_dimensions[col].width = w
+
+    buf = _io.BytesIO()
+    wb.save(buf)
+    filename = f"kyungnam_stock_{_date.today().strftime('%Y%m%d')}.xlsx"
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @router.get("/{product_id}", response_model=ProductOut)
 def get_product(product_id: int, db: Session = Depends(get_db)):
     product = db.scalar(_product_query().where(Product.id == product_id))
@@ -48,6 +100,8 @@ def create_product(body: ProductCreate, db: Session = Depends(get_db)):
         item_type=body.item_type if body.category == "goods" else None,
         image_url=body.image_url,
         low_stock_threshold=body.low_stock_threshold,
+        base_price=body.base_price,
+        memo=body.memo,
         brand_id=body.brand_id if body.category == "shoe" else None,
     )
     # 카테고리에 맞는 사이즈 변형을 전부 만들어 둔다 (초기 재고 반영)

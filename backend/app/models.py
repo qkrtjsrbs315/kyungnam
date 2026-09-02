@@ -51,6 +51,8 @@ class Product(Base):
     image_data: Mapped[bytes | None] = mapped_column(LargeBinary, deferred=True)
     image_mime: Mapped[str | None] = mapped_column(String(50))
     low_stock_threshold: Mapped[int] = mapped_column(Integer, default=10)
+    base_price: Mapped[int | None] = mapped_column(Integer)  # 대리점가 (엑셀 재고가치 계산용)
+    memo: Mapped[str | None] = mapped_column(Text)
     brand_id: Mapped[int | None] = mapped_column(ForeignKey("brands.id", ondelete="SET NULL"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

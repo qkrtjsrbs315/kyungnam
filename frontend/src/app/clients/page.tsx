@@ -11,6 +11,8 @@ export default function ClientsPage() {
   const [prices, setPrices] = useState<ClientPrice[]>([]);
   const [form, setForm] = useState({ name: "", contact: "", memo: "" });
   const [priceForm, setPriceForm] = useState({ product_id: "", unit_price: "" });
+  const [editing, setEditing] = useState<Client | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", contact: "", memo: "" });
 
   const load = useCallback(() => {
     api<Client[]>("/clients").then(setClients).catch(() => {});
@@ -54,6 +56,34 @@ export default function ClientsPage() {
     await api(`/clients/${c.id}`, { method: "DELETE" });
     if (selected?.id === c.id) setSelected(null);
     load();
+  }
+
+  function openEdit(c: Client) {
+    setEditing(c);
+    setEditForm({ name: c.name, contact: c.contact ?? "", memo: c.memo ?? "" });
+  }
+
+  async function saveEdit() {
+    if (!editing) return;
+    if (!editForm.name.trim()) {
+      alert("거래처명을 입력해주세요.");
+      return;
+    }
+    try {
+      const updated = await api<Client>(`/clients/${editing.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          name: editForm.name.trim(),
+          contact: editForm.contact.trim() || null,
+          memo: editForm.memo.trim() || null,
+        }),
+      });
+      if (selected?.id === updated.id) setSelected(updated);
+      setEditing(null);
+      load();
+    } catch (e) {
+      alert((e as Error).message);
+    }
   }
 
   async function setPrice() {
@@ -115,7 +145,9 @@ export default function ClientsPage() {
           </div>
 
           <div className="bg-white border border-gray-200 rounded-2xl p-5">
-            <h3 className="font-extrabold mb-3.5">거래처 목록</h3>
+            <h3 className="font-extrabold mb-3.5">
+              거래처 목록 <span className="text-gray-500 font-bold text-sm">(총 {clients.length}곳)</span>
+            </h3>
             {clients.length === 0 ? (
               <p className="text-sm text-gray-500">등록된 거래처가 없습니다.</p>
             ) : (
@@ -143,7 +175,16 @@ export default function ClientsPage() {
                           <td className="py-3 px-2 text-gray-500">{c.contact ?? "-"}</td>
                           <td className="py-3 px-2 text-right tabular-nums">{s ? s.out_qty.toLocaleString() + "개" : "-"}</td>
                           <td className="py-3 px-2 text-right tabular-nums">{s ? won(s.sales_amount) : "-"}</td>
-                          <td className="py-3 px-2 text-right">
+                          <td className="py-3 px-2 text-right whitespace-nowrap">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openEdit(c);
+                              }}
+                              className="text-xs font-bold text-gray-600 mr-2"
+                            >
+                              수정
+                            </button>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -167,8 +208,16 @@ export default function ClientsPage() {
         <div className="bg-white border border-gray-200 rounded-2xl p-5">
           {selected ? (
             <>
-              <h3 className="font-extrabold mb-1">{selected.name} — 제품별 단가</h3>
-              <p className="text-sm text-gray-500 mb-4">
+              <div className="flex items-center justify-between mb-1">
+                <h3 className="font-extrabold">{selected.name} — 제품별 단가</h3>
+                <button
+                  onClick={() => openEdit(selected)}
+                  className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-bold"
+                >
+                  정보 수정
+                </button>
+              </div>
+              <p className="text-sm text-gray-500 mb-2">
                 {(() => {
                   const s = salesOf(selected.id);
                   return s
@@ -176,6 +225,11 @@ export default function ClientsPage() {
                     : "아직 거래 내역이 없습니다.";
                 })()}
               </p>
+              {selected.memo && (
+                <p className="text-sm text-gray-700 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 mb-3 whitespace-pre-wrap">
+                  📝 {selected.memo}
+                </p>
+              )}
               <div className="flex gap-2 mb-4">
                 <select
                   className={input}
@@ -228,6 +282,41 @@ export default function ClientsPage() {
           )}
         </div>
       </div>
+
+      {editing && (
+        <div className="fixed inset-0 bg-slate-900/45 flex items-center justify-center p-4 z-20">
+          <div className="w-full max-w-md bg-white rounded-2xl p-6">
+            <h2 className="text-lg font-extrabold mb-4">거래처 정보 수정</h2>
+            <label className={labelCls}>거래처명</label>
+            <input
+              className={`${input} mb-3`}
+              value={editForm.name}
+              onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+            />
+            <label className={labelCls}>연락처</label>
+            <input
+              className={`${input} mb-3`}
+              value={editForm.contact}
+              onChange={(e) => setEditForm((f) => ({ ...f, contact: e.target.value }))}
+            />
+            <label className={labelCls}>메모</label>
+            <textarea
+              className={`${input} min-h-24 mb-4`}
+              placeholder="예: 월말 정산, 담당자 김OO"
+              value={editForm.memo}
+              onChange={(e) => setEditForm((f) => ({ ...f, memo: e.target.value }))}
+            />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setEditing(null)} className="rounded-lg border border-gray-200 px-4 py-2 font-bold text-sm">
+                취소
+              </button>
+              <button onClick={saveEdit} className="rounded-lg bg-gray-900 text-white px-4 py-2 font-bold text-sm">
+                저장
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

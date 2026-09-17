@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect, select, text
 
 from .auth import hash_password, require_auth
+from .brand_names import brand_name
 from .config import settings
 from .database import Base, SessionLocal, engine
 from .models import Brand, User
@@ -12,7 +13,7 @@ from .routers import auth, brands, clients, movements, notifications, products, 
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_BRANDS = ["에어워크", "엘에이기어"]
+DEFAULT_BRANDS = ["에어워크", "LA기어"]
 
 
 # create_all 은 기존 테이블에 컬럼을 추가하지 않으므로, 새로 생긴 컬럼은 여기서 보정한다.
@@ -41,7 +42,7 @@ def init_db() -> None:
         Base.metadata.create_all(bind=engine)
         _ensure_columns()
         with SessionLocal() as db:
-            existing = set(db.scalars(select(Brand.name)).all())
+            existing = {brand_name(n) for n in db.scalars(select(Brand.name)).all()}
             for name in DEFAULT_BRANDS:
                 if name not in existing:
                     db.add(Brand(name=name))

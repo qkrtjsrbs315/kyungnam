@@ -90,7 +90,7 @@ export default function ProductsPage() {
           work_type: form.category === "shoe" ? form.work_type : null,
           item_type: form.category === "goods" ? form.item_type.trim() || null : null,
           image_url: form.image_url.trim() || null,
-          brand_id: form.category === "shoe" && form.brand_id ? Number(form.brand_id) : null,
+          brand_id: form.brand_id ? Number(form.brand_id) : null,
           low_stock_threshold: form.low_stock_threshold,
           base_price: form.base_price !== "" ? Number(form.base_price) : null,
           memo: form.memo.trim() || null,
@@ -161,7 +161,7 @@ export default function ProductsPage() {
           work_type: editing.category === "shoe" ? editForm.work_type : null,
           item_type: editing.category === "goods" ? editForm.item_type.trim() || null : null,
           image_url: editForm.image_url.trim() || null,
-          brand_id: editing.category === "shoe" && editForm.brand_id ? Number(editForm.brand_id) : null,
+          brand_id: editForm.brand_id ? Number(editForm.brand_id) : null,
           low_stock_threshold: editForm.low_stock_threshold,
           base_price: editForm.base_price !== "" ? Number(editForm.base_price) : null,
           memo: editForm.memo.trim() || null,
@@ -218,7 +218,7 @@ export default function ProductsPage() {
               <tr className="text-left text-xs text-gray-500">
                 <th className="py-2.5 px-2">구분</th>
                 <th className="py-2.5 px-2">제품</th>
-                <th className="py-2.5 px-2">브랜드/품목</th>
+                <th className="py-2.5 px-2">브랜드</th>
                 <th className="py-2.5 px-2">색상</th>
                 <th className="py-2.5 px-2">용도</th>
                 <th className="py-2.5 px-2 text-right">총재고</th>
@@ -234,7 +234,7 @@ export default function ProductsPage() {
                 >
                   <td className="py-3 px-2">{p.category === "shoe" ? "신발" : "용품"}</td>
                   <td className="py-3 px-2 font-bold">{productLabel(p)}</td>
-                  <td className="py-3 px-2">{p.category === "shoe" ? p.brand?.name ?? "-" : p.item_type ?? "-"}</td>
+                  <td className="py-3 px-2">{p.brand?.name ?? "미지정"}</td>
                   <td className="py-3 px-2">{p.color ?? "-"}</td>
                   <td className="py-3 px-2">{p.work_type ? WORK_TYPE_LABEL[p.work_type] : "-"}</td>
                   <td className="py-3 px-2 text-right tabular-nums">{totalOf(p).toLocaleString()}개</td>
@@ -273,9 +273,7 @@ export default function ProductsPage() {
             </div>
           </div>
           <p className="text-sm text-gray-500 mb-1">
-            {selected.category === "shoe"
-              ? `브랜드 ${selected.brand?.name ?? "-"}`
-              : `품목 ${selected.item_type ?? "-"}`}{" "}
+            브랜드 {selected.brand?.name ?? "미지정"}{selected.item_type && ` · 품목 ${selected.item_type}`}{" "}
             · 색상 {selected.color ?? "-"} · 부족재고 기준 {selected.low_stock_threshold}개 이하
             {selected.base_price != null && ` · 대리점가 ${selected.base_price.toLocaleString()}원`}
           </p>
@@ -360,33 +358,33 @@ export default function ProductsPage() {
               ))}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>브랜드</label>
+                <select
+                  className={input}
+                  value={form.brand_id}
+                  onChange={(e) => setForm((f) => ({ ...f, brand_id: e.target.value }))}
+                >
+                  <option value="">브랜드 미지정</option>
+                  {brands.map((b) => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
+                <div className="flex gap-1.5 mt-1.5">
+                  <input
+                    className={input}
+                    placeholder="새 브랜드 추가"
+                    value={newBrand}
+                    onChange={(e) => setNewBrand(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && addBrand()}
+                  />
+                  <button onClick={addBrand} className="rounded-lg border border-gray-200 px-3 text-sm font-bold shrink-0">
+                    추가
+                  </button>
+                </div>
+              </div>
               {form.category === "shoe" ? (
                 <>
-                  <div>
-                    <label className={labelCls}>브랜드</label>
-                    <select
-                      className={input}
-                      value={form.brand_id}
-                      onChange={(e) => setForm((f) => ({ ...f, brand_id: e.target.value }))}
-                    >
-                      <option value="">선택 안 함</option>
-                      {brands.map((b) => (
-                        <option key={b.id} value={b.id}>{b.name}</option>
-                      ))}
-                    </select>
-                    <div className="flex gap-1.5 mt-1.5">
-                      <input
-                        className={input}
-                        placeholder="새 브랜드 추가"
-                        value={newBrand}
-                        onChange={(e) => setNewBrand(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && addBrand()}
-                      />
-                      <button onClick={addBrand} className="rounded-lg border border-gray-200 px-3 text-sm font-bold shrink-0">
-                        추가
-                      </button>
-                    </div>
-                  </div>
                   <div>
                     <label className={labelCls}>작업 용도</label>
                     <select
@@ -524,21 +522,21 @@ export default function ProductsPage() {
           <div className="w-full max-w-2xl bg-white rounded-2xl p-6 max-h-[90vh] overflow-auto">
             <h2 className="text-xl font-extrabold mb-4">제품 수정 — {productLabel(editing)}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>브랜드</label>
+                <select
+                  className={input}
+                  value={editForm.brand_id}
+                  onChange={(e) => setEditForm((f) => ({ ...f, brand_id: e.target.value }))}
+                >
+                  <option value="">브랜드 미지정</option>
+                  {brands.map((b) => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
+              </div>
               {editing.category === "shoe" ? (
                 <>
-                  <div>
-                    <label className={labelCls}>브랜드</label>
-                    <select
-                      className={input}
-                      value={editForm.brand_id}
-                      onChange={(e) => setEditForm((f) => ({ ...f, brand_id: e.target.value }))}
-                    >
-                      <option value="">선택 안 함</option>
-                      {brands.map((b) => (
-                        <option key={b.id} value={b.id}>{b.name}</option>
-                      ))}
-                    </select>
-                  </div>
                   <div>
                     <label className={labelCls}>작업 용도</label>
                     <select

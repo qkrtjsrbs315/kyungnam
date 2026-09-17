@@ -1,7 +1,9 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from .brand_names import brand_name
 
 
 class ORMModel(BaseModel):
@@ -16,6 +18,8 @@ class BrandCreate(BaseModel):
 class BrandOut(ORMModel):
     id: int
     name: str
+
+    _display_name = field_validator("name")(brand_name)
 
 
 # ---------- 거래처 ----------
@@ -165,6 +169,7 @@ class OutboundRow(BaseModel):
     product_model: str | None
     size: str
     qty: int
+    brand_name: str | None = None
 
 
 class ClientSalesRow(BaseModel):

@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { api, Client, ClientPrice, Movement, Product, productLabel, won } from "@/lib/api";
+import { api, Brand, Client, ClientPrice, Movement, Product, productLabel, won } from "@/lib/api";
 
 export default function MovementsPage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [brandId, setBrandId] = useState("");
+  const [loadError, setLoadError] = useState("");
   const [clients, setClients] = useState<Client[]>([]);
   const [type, setType] = useState<"in" | "out" | "return">("in");
   const [productId, setProductId] = useState("");
@@ -18,31 +21,27 @@ export default function MovementsPage() {
   const [message, setMessage] = useState("");
 
   function load() {
-    api<Product[]>("/products").then((p) => {
-      setProducts(p);
-      if (p.length && !p.some((x) => String(x.id) === productId)) {
-        setProductId(String(p[0].id));
-      }
-    }).catch(() => {});
+    Promise.all([api<Product[]>("/products"), api<Brand[]>("/brands")])
+      .then(([p, b]) => { setProducts(p); setBrands(b); setLoadError(""); })
+      .catch((e: Error) => setLoadError(e.message));
     api<Client[]>("/clients").then(setClients).catch(() => {});
   }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(load, []);
 
-  const product = useMemo(() => products.find((p) => String(p.id) === productId), [products, productId]);
+  const filteredProducts = useMemo(() => products.filter((p) =>
+    brandId === "unassigned" ? !p.brand : String(p.brand?.id) === brandId
+  ), [products, brandId]);
+  const product = filteredProducts.find((p) => String(p.id) === productId);
+  const selectedVariant = product?.variants.find((v) => String(v.id) === variantId);
 
   useEffect(() => {
-    if (product && !product.variants.some((v) => String(v.id) === variantId)) {
-      setVariantId(String(product.variants[0]?.id ?? ""));
-    }
-  }, [product, variantId]);
-
-  useEffect(() => {
+    let active = true;
     if (clientId) {
-      api<ClientPrice[]>(`/clients/${clientId}/prices`).then(setClientPrices).catch(() => setClientPrices([]));
-    } else {
-      setClientPrices([]);
+      api<ClientPrice[]>(`/clients/${clientId}/prices`)
+        .then((prices) => { if (active) setClientPrices(prices); })
+        .catch(() => { if (active) setClientPrices([]); });
     }
+    return () => { active = false; };
   }, [clientId]);
 
   const autoPrice = useMemo(() => {
@@ -51,8 +50,8 @@ export default function MovementsPage() {
   }, [clientPrices, product, clientId]);
 
   async function submit() {
-    if (!variantId) {
-      alert("제품을 먼저 등록해주세요.");
+    if (!selectedVariant) {
+      alert("브랜드, 제품과 사이즈를 선택해주세요.");
       return;
     }
     if (qty < 1) {
@@ -98,6 +97,7 @@ export default function MovementsPage() {
         <p className="text-sm text-gray-500 mt-1">처리 즉시 현재 재고에 반영됩니다. 반품은 재고가 다시 늘어납니다.</p>
       </div>
 
+      {loadError && <p role="alert" className="mb-4 text-red-600">{loadError}</p>}
       {message && (
         <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 px-4 py-3 text-sm max-w-3xl">
           {message}
@@ -115,9 +115,22 @@ export default function MovementsPage() {
             </select>
           </div>
           <div>
-            <label className={labelCls}>제품</label>
-            <select className={input} value={productId} onChange={(e) => setProductId(e.target.value)}>
-              {products.map((p) => (
+            <label className={labelCls}>브랜드</label>
+            <select aria-label="브랜드" className={input} value={brandId} onChange={(e) => {
+              setBrandId(e.target.value); setProductId(""); setVariantId(""); setUnitPrice("");
+            }}>
+              <option value="">브랜드 선택</option>
+              {brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+              <option value="unassigned">브랜드 미지정 (기존 제품·용품)</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>제품명</label>
+            <select aria-label="제품명" className={input} value={productId} disabled={!brandId} onChange={(e) => {
+              setProductId(e.target.value); setVariantId(""); setUnitPrice("");
+            }}>
+              <option value="">{!brandId ? "브랜드를 먼저 선택하세요" : filteredProducts.length ? "제품 선택" : "등록된 제품이 없습니다"}</option>
+              {filteredProducts.map((p) => (
                 <option key={p.id} value={p.id}>
                   [{p.category === "shoe" ? "신발" : "용품"}] {productLabel(p)}
                 </option>
@@ -126,7 +139,8 @@ export default function MovementsPage() {
           </div>
           <div>
             <label className={labelCls}>사이즈</label>
-            <select className={input} value={variantId} onChange={(e) => setVariantId(e.target.value)}>
+            <select aria-label="사이즈" disabled={!product} className={input} value={variantId} onChange={(e) => setVariantId(e.target.value)}>
+              <option value="">사이즈 선택</option>
               {product?.variants.map((v) => (
                 <option key={v.id} value={v.id}>
                   {v.size} (현재 {v.stock}개)
@@ -140,7 +154,9 @@ export default function MovementsPage() {
           </div>
           <div>
             <label className={labelCls}>거래처 (출고·반품 시 선택)</label>
-            <select className={input} value={clientId} onChange={(e) => setClientId(e.target.value)}>
+            <select className={input} value={clientId} onChange={(e) => {
+              setClientId(e.target.value); setClientPrices([]); setUnitPrice("");
+            }}>
               <option value="">선택 안 함</option>
               {clients.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
@@ -168,7 +184,7 @@ export default function MovementsPage() {
         <div className="flex justify-end mt-4">
           <button
             onClick={submit}
-            disabled={saving}
+            disabled={saving || !selectedVariant}
             className="rounded-lg bg-gray-900 text-white px-5 py-2.5 font-bold text-sm disabled:opacity-50"
           >
             {saving ? "처리 중..." : "재고 반영"}

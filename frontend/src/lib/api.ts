@@ -42,6 +42,7 @@ export type Dashboard = {
   today_movements: number;
 };
 export type OutboundRow = {
+  brand_name: string | null;
   period: string;
   product_id: number;
   product_name: string;

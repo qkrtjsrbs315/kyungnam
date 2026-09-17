@@ -1,12 +1,13 @@
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models import Client, Movement, Product, Variant
+from ..models import Brand, Client, Movement, Product, Variant
+from ..brand_names import brand_name
 from ..schemas import ClientSalesRow, DashboardOut, MonthlyRow, OutboundRow, SalesRow
 
 router = APIRouter(prefix="/stats", tags=["stats"])
@@ -73,10 +74,20 @@ def outbound(
     period: Literal["daily", "monthly"] = "daily",
     days: int = 30,
     db: Session = Depends(get_db),
+    month: str | None = Query(default=None, pattern=r"^\d{4}-(0[1-9]|1[0-2])$"),
 ):
     """일별/월별 품목·사이즈별 출고 수량"""
     since = datetime.combine(date.today() - timedelta(days=days if period == "daily" else 365), time.min)
     period_expr = _period_expr(db, period)
+    filters = [Movement.type == "out"]
+    if month:
+        filters.append(_period_expr(db, "monthly") == month)
+    else:
+        if period == "monthly":
+            today = datetime.now(timezone(timedelta(hours=9))).date()
+            index = today.year * 12 + today.month - 1 - 11
+            since = datetime(index // 12, index % 12 + 1, 1) - timedelta(hours=9)
+        filters.append(Movement.created_at >= since)
 
     rows = db.execute(
         select(
@@ -86,16 +97,19 @@ def outbound(
             Product.model,
             Variant.size,
             func.sum(Movement.qty).label("qty"),
+            Brand.name,
         )
         .join(Variant, Movement.variant_id == Variant.id)
         .join(Product, Variant.product_id == Product.id)
-        .where(Movement.type == "out", Movement.created_at >= since)
-        .group_by("period", Product.id, Product.name, Product.model, Variant.size)
-        .order_by(period_expr.desc(), Product.name, Variant.size)
+        .outerjoin(Brand, Product.brand_id == Brand.id)
+        .where(*filters)
+        .group_by("period", Product.id, Product.name, Product.model, Variant.size, Brand.name)
+        .order_by(period_expr.desc(), func.sum(Movement.qty).desc(), Product.id, Variant.size)
     ).all()
     return [
         OutboundRow(
-            period=r[0], product_id=r[1], product_name=r[2], product_model=r[3], size=r[4], qty=r[5]
+            period=r[0], product_id=r[1], product_name=r[2], product_model=r[3], size=r[4], qty=r[5],
+            brand_name=brand_name(r[6]) if r[6] else None,
         )
         for r in rows
     ]

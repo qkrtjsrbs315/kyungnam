@@ -196,6 +196,7 @@ export default function ProductsPage() {
           <p className="text-sm text-gray-500 mt-1">제품을 선택하면 사이즈별 재고를 확인할 수 있습니다.</p>
         </div>
         <div className="flex gap-2">
+          <a href="/website-products" className="rounded-lg border border-gray-200 bg-white font-bold px-4 py-2.5">홈페이지 상품 관리</a>
           <button onClick={exportExcel} className="rounded-lg border border-gray-200 bg-white font-bold px-4 py-2.5">
             📊 엑셀 다운로드
           </button>

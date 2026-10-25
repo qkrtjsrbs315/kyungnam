@@ -8,6 +8,8 @@ import AccountBox from "./AccountBox";
 const NAV = [
   { href: "/", label: "대시보드" },
   { href: "/products", label: "제품·재고" },
+  { href: "/website-products", label: "홈페이지 상품" },
+  { href: "/orders", label: "발주 문의" },
   { href: "/movements", label: "입고·출고" },
   { href: "/history", label: "입출고 내역" },
   { href: "/clients", label: "거래처" },

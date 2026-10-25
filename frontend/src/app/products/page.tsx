@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { syncWebsiteProducts } from "@/lib/website";
 import {
   api,
   Brand,
@@ -41,6 +42,18 @@ export default function ProductsPage() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [editing, setEditing] = useState<Product | null>(null);
   const [editForm, setEditForm] = useState(EMPTY_FORM);
+  const [syncMessage, setSyncMessage] = useState("");
+  const [syncing, setSyncing] = useState(false);
+  const syncWebsite = useCallback(async () => {
+    setSyncing(true);
+    try {
+      const result = await syncWebsiteProducts();
+      setSyncMessage(`홈페이지 반영 완료 · 재고 제품 ${result.total}개 연결`);
+    } catch (e) {
+      setSyncMessage(`재고 저장은 유지됩니다. 홈페이지 반영을 다시 시도해주세요: ${(e as Error).message}`);
+    } finally { setSyncing(false); }
+  }, []);
+  useEffect(() => { void syncWebsite(); }, [syncWebsite]);
 
   const load = useCallback(() => {
     api<Product[]>("/products").then(setProducts).catch(() => {});
@@ -97,12 +110,16 @@ export default function ProductsPage() {
           initial_stocks: stocks,
         }),
       });
-      if (imageFile) await uploadProductImage(created.id, imageFile);
+      if (imageFile) {
+        try { await uploadProductImage(created.id, imageFile); }
+        catch { alert("제품은 등록됐지만 이미지 업로드에 실패했습니다. 제품 수정에서 이미지를 다시 올려주세요."); }
+      }
       setShowModal(false);
       setForm(EMPTY_FORM);
       setStocks({});
       setImageFile(null);
       load();
+      await syncWebsite();
     } catch (e) {
       alert((e as Error).message);
     } finally {
@@ -115,6 +132,7 @@ export default function ProductsPage() {
     await api(`/products/${p.id}`, { method: "DELETE" });
     setSelected(null);
     load();
+    await syncWebsite();
   }
 
   async function changeImage(p: Product, file: File) {
@@ -122,6 +140,7 @@ export default function ProductsPage() {
       const updated = await uploadProductImage(p.id, file);
       setSelected(updated);
       load();
+      await syncWebsite();
     } catch (e) {
       alert((e as Error).message);
     }
@@ -170,6 +189,7 @@ export default function ProductsPage() {
       setSelected(updated);
       setEditing(null);
       load();
+      await syncWebsite();
     } catch (e) {
       alert((e as Error).message);
     } finally {
@@ -193,7 +213,7 @@ export default function ProductsPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-extrabold">제품·재고</h1>
-          <p className="text-sm text-gray-500 mt-1">제품을 선택하면 사이즈별 재고를 확인할 수 있습니다.</p>
+          <p className="text-sm text-gray-500 mt-1">여기서 등록·수정한 제품은 홈페이지에도 자동 반영됩니다. 홈페이지 판매가격과 BEST 지정은 홈페이지 상품 관리에서 설정하세요.</p>
         </div>
         <div className="flex gap-2">
           <a href="/website-products" className="rounded-lg border border-gray-200 bg-white font-bold px-4 py-2.5">홈페이지 상품 관리</a>
@@ -206,6 +226,10 @@ export default function ProductsPage() {
         </div>
       </div>
 
+      <div className="mb-4 flex flex-wrap items-center gap-3 text-sm" role="status">
+        <span>{syncing ? "홈페이지 상품 반영 중…" : syncMessage}</span>
+        <button disabled={syncing || saving} onClick={() => void syncWebsite()} className="rounded-lg border bg-white px-3 py-2 disabled:opacity-50">홈페이지 다시 반영</button>
+      </div>
       <div className="bg-white border border-gray-200 rounded-2xl p-5">
         <input
           className={`${input} mb-3`}

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api, Product, productImageSrc, productLabel } from "@/lib/api";
-import { websiteApi, websiteImage, WebsiteProduct, WEBSITE_CATEGORIES, WEBSITE_SUBCATEGORIES } from "@/lib/website";
+import { websiteApi, websiteImage, WebsiteProduct, WEBSITE_CATEGORIES, WEBSITE_SUBCATEGORIES, syncWebsiteProducts } from "@/lib/website";
 
 const empty = (): Omit<WebsiteProduct, "id"> => ({ name: "", inventory_product_id: null, description: "", price: 0,
   categories: [], subcategory: "", image_url: "", image_urls: [], store_url: "", is_active: true,
@@ -23,6 +23,7 @@ export default function WebsiteProductsPage() {
   const load = useCallback(async () => {
     setLoading(true); setError("");
     try {
+      await syncWebsiteProducts();
       const [p, i] = await Promise.all([websiteApi<WebsiteProduct[]>("/products"), api<Product[]>("/products")]);
       setProducts(p); setInventory(i);
     } catch (e) { setError((e as Error).message); }
@@ -63,9 +64,9 @@ export default function WebsiteProductsPage() {
   return <div className="space-y-5">
     <div className="flex flex-wrap justify-between items-center gap-3">
       <div><h1 className="text-2xl font-extrabold">홈페이지 상품 관리</h1>
-        <p className="text-sm text-gray-500 mt-1">재고 제품을 연결하고 홈페이지의 판매가격·설명·이미지·노출 여부를 관리합니다.</p></div>
+        <p className="text-sm text-gray-500 mt-1">재고관리에서 등록한 제품이 자동으로 표시됩니다. 여기서는 판매가격·설명·이미지·BEST·노출 여부를 설정합니다.</p></div>
       <div className="flex gap-2"><a className={button} href="https://kyungnam-order.vercel.app/products" target="_blank" rel="noreferrer">홈페이지 보기</a>
-        <button className={button} onClick={() => edit()} disabled={busy}>상품 등록</button></div>
+        <a className={button} href="/products">재고 제품 등록</a></div>
     </div>
     {error && <p role="alert" className="bg-red-50 text-red-700 p-3 rounded-lg">{error}</p>}
     {message && <p role="status" className="bg-green-50 text-green-800 p-3 rounded-lg">{message}</p>}
@@ -73,7 +74,7 @@ export default function WebsiteProductsPage() {
       <h2 className="font-bold text-lg">{editing === null ? "상품 등록" : "상품 수정"}</h2>
       <fieldset disabled={busy} className="space-y-4">
         <label className="block">연결할 재고 제품
-          <select className={input} value={form.inventory_product_id ?? ""} onChange={e => importInventory(e.target.value ? Number(e.target.value) : null)}>
+          <select className={input} disabled={form.inventory_product_id !== null} value={form.inventory_product_id ?? ""} onChange={e => importInventory(e.target.value ? Number(e.target.value) : null)}>
             <option value="">연결 없음 (홈페이지 전용 상품)</option>
             {inventory.map(p => <option key={p.id} value={p.id} disabled={products.some(w => w.inventory_product_id === p.id && w.id !== editing)}>
               {p.brand?.name} · {productLabel(p)}{products.some(w => w.inventory_product_id === p.id && w.id !== editing) ? " (연결됨)" : ""}</option>)}

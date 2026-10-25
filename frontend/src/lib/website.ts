@@ -23,7 +23,16 @@ export async function websiteApi<T>(path: string, init?: RequestInit): Promise<T
   const headers = new Headers(init?.headers);
   headers.set("Authorization", `Bearer ${getToken() ?? ""}`);
   if (!(init?.body instanceof FormData)) headers.set("Content-Type", "application/json");
-  const response = await fetch(`${WEBSITE_API}/api/admin${path}`, { ...init, headers, cache: "no-store" });
+  let response: Response;
+  try {
+    response = await fetch(`${WEBSITE_API}/api/admin${path}`, { ...init, headers, cache: "no-store",
+      signal: init?.signal ?? AbortSignal.timeout(path === "/products/sync-inventory" ? 65000 : 35000) });
+  } catch (error) {
+    if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
+      throw new Error("서버 응답이 지연되고 있습니다. 잠시 후 다시 시도해주세요.");
+    }
+    throw new Error("홈페이지 서버에 연결하지 못했습니다. 네트워크 연결을 확인하고 다시 시도해주세요.");
+  }
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
     if (response.status === 401) throw new Error("로그인이 만료되었습니다. 재고관리 사이트에 다시 로그인해주세요.");

@@ -20,16 +20,28 @@ export default function WebsiteProductsPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [query, setQuery] = useState("");
+  const [syncing, setSyncing] = useState(false);
+  const [warning, setWarning] = useState("");
+  const [loaded, setLoaded] = useState(false);
   const load = useCallback(async () => {
     setLoading(true); setError("");
     try {
-      await syncWebsiteProducts();
-      const [p, i] = await Promise.all([websiteApi<WebsiteProduct[]>("/products"), api<Product[]>("/products")]);
-      setProducts(p); setInventory(i);
+      const p = await websiteApi<WebsiteProduct[]>("/products");
+      setProducts(p); setLoaded(true);
     } catch (e) { setError((e as Error).message); }
     finally { setLoading(false); }
   }, []);
-  useEffect(() => { void load(); }, [load]);
+  const refreshInventory = useCallback(async () => {
+    try { setInventory(await api<Product[]>("/products", { signal: AbortSignal.timeout(30000) })); }
+    catch { setWarning("재고 제품 정보를 불러오지 못했습니다. 기존 홈페이지 상품은 계속 관리할 수 있습니다."); }
+  }, []);
+  const sync = useCallback(async () => {
+    setSyncing(true); setWarning("");
+    try { await syncWebsiteProducts(); await load(); await refreshInventory(); }
+    catch (e) { setWarning(`재고 동기화에 실패했습니다. 기존 상품은 유지됩니다. ${(e as Error).message}`); }
+    finally { setSyncing(false); }
+  }, [load, refreshInventory]);
+  useEffect(() => { void load(); void refreshInventory(); }, [load, refreshInventory]);
 
   function edit(p?: WebsiteProduct) {
     setEditing(p?.id ?? null); setForm(p ? { ...p } : empty()); setError(""); setMessage("");
@@ -69,6 +81,7 @@ export default function WebsiteProductsPage() {
         <a className={button} href="/products">재고 제품 등록</a></div>
     </div>
     {error && <p role="alert" className="bg-red-50 text-red-700 p-3 rounded-lg">{error}</p>}
+    {warning && <p role="alert" className="bg-amber-50 text-amber-800 p-3 rounded-lg">{warning}</p>}
     {message && <p role="status" className="bg-green-50 text-green-800 p-3 rounded-lg">{message}</p>}
     {editing !== undefined && <form onSubmit={save} className="bg-white border rounded-2xl p-5 space-y-4">
       <h2 className="font-bold text-lg">{editing === null ? "상품 등록" : "상품 수정"}</h2>
@@ -76,6 +89,7 @@ export default function WebsiteProductsPage() {
         <label className="block">연결할 재고 제품
           <select className={input} disabled={form.inventory_product_id !== null} value={form.inventory_product_id ?? ""} onChange={e => importInventory(e.target.value ? Number(e.target.value) : null)}>
             <option value="">연결 없음 (홈페이지 전용 상품)</option>
+            {form.inventory_product_id && !inventory.some(p => p.id === form.inventory_product_id) && <option value={form.inventory_product_id}>재고 제품 #{form.inventory_product_id}</option>}
             {inventory.map(p => <option key={p.id} value={p.id} disabled={products.some(w => w.inventory_product_id === p.id && w.id !== editing)}>
               {p.brand?.name} · {productLabel(p)}{products.some(w => w.inventory_product_id === p.id && w.id !== editing) ? " (연결됨)" : ""}</option>)}
           </select>
@@ -108,8 +122,9 @@ export default function WebsiteProductsPage() {
       </fieldset>
     </form>}
     <div className="bg-white border rounded-2xl p-5 space-y-4">
-      <div className="flex gap-2"><input placeholder="상품명 검색" aria-label="상품명 검색" className={input} value={query} onChange={e => setQuery(e.target.value)} /><button className={button} onClick={() => void load()} disabled={busy}>새로고침</button></div>
-      {loading ? <p>불러오는 중…</p> : <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="text-left"><th>상품</th><th>재고 연결</th><th>판매가격</th><th>공개</th><th>관리</th></tr></thead>
+      <div className="flex flex-wrap gap-2"><input placeholder="상품명 검색" aria-label="상품명 검색" className={input} value={query} onChange={e => setQuery(e.target.value)} /><button className={button} onClick={() => void load()} disabled={busy || loading || syncing}>목록 새로고침</button><button className={button} onClick={() => void sync()} disabled={busy || syncing || loading}>{syncing ? "재고 동기화 중…" : "재고 상품 동기화"}</button></div>
+      {loading && <p role="status">상품 목록을 불러오는 중…</p>}
+      {loaded && <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="text-left"><th>상품</th><th>재고 연결</th><th>판매가격</th><th>공개</th><th>관리</th></tr></thead>
         <tbody>{products.filter(p => p.name.toLowerCase().includes(query.toLowerCase())).map(p => <tr key={p.id} className="border-t">
           <td className="py-4">{p.name}</td><td>{p.inventory_product_id ? `제품 #${p.inventory_product_id}` : "홈페이지 전용"}</td><td>{p.price.toLocaleString()}원</td><td>{p.is_active ? "공개" : "비공개"}</td>
           <td><button className={button} onClick={() => edit(p)} disabled={busy}>수정</button></td></tr>)}</tbody></table>

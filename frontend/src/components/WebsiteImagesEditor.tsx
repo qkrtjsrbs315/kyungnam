@@ -78,7 +78,7 @@ export default function WebsiteImagesEditor({ value, onChange, onBusy, onError }
       <h4 className="font-bold text-sm">{key==='image_urls' ? '2. 촬영 사진 갤러리' : '3. 상세설명 이미지'} <span className="font-normal text-gray-500">({value[key].length}장)</span></h4>
       <p className="my-2 text-xs leading-6 text-gray-500">{key==='image_urls' ? '상단에서 넘겨보는 제품 사진입니다. 첫 대표 이미지와 함께 표시됩니다.' : '하단에 원래 비율로 길게 표시됩니다. 상세.jpg → 상세2.jpg 순서로 배치하세요.'}</p>
       <input aria-label={key==='image_urls'?'촬영 사진 여러 장 업로드':'상세설명 여러 장 업로드'} multiple type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>{void upload(Array.from(e.target.files??[]),key==='image_urls'?'gallery':'detail');e.target.value='';}} />
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{value[key].map((url,i)=><div key={`${i}-${url}`} className="space-y-2 rounded-lg border p-3">
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{value[key].map((url,i)=><div key={i} className="space-y-2 rounded-lg border p-3">
         <div className="h-36 overflow-auto rounded bg-gray-50">{url && <img src={websiteImage(url)} alt={`${key==='image_urls'?'촬영':'상세설명'} ${i+1}`} className={key==='image_urls'?'h-full w-full object-contain':'h-auto w-full'} />}</div>
         <input aria-label={`이미지 ${i+1} 주소`} className="w-full rounded border p-2 text-xs" value={url} onChange={e=>onChange({...value,[key]:value[key].map((u,n)=>n===i?e.target.value:u)})} />
         <div className="flex flex-wrap gap-1"><button type="button" aria-label={`${i+1}번 이미지 앞으로`} className={button} disabled={i===0} onClick={()=>reorder(key,i,-1)}>앞으로</button><button type="button" className={button} disabled={i===value[key].length-1} onClick={()=>reorder(key,i,1)}>뒤로</button>

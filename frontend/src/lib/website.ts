@@ -5,6 +5,7 @@ export type WebsiteProduct = {
   id: number; name: string; inventory_product_id: number | null;
   description: string; price: number; categories: string[]; subcategory: string;
   image_url: string; image_urls: string[]; store_url: string;
+  detail_image_urls: string[];
   is_active: boolean; is_best: boolean; is_new: boolean; sort_order: number;
 };
 export type WebsiteOrder = {

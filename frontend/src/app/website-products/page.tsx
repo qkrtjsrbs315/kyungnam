@@ -1,11 +1,12 @@
 "use client";
 
+import WebsiteImagesEditor from "@/components/WebsiteImagesEditor";
 import { useCallback, useEffect, useState } from "react";
 import { api, Product, productImageSrc, productLabel } from "@/lib/api";
 import { websiteApi, websiteImage, WebsiteProduct, WEBSITE_CATEGORIES, WEBSITE_SUBCATEGORIES, syncWebsiteProducts } from "@/lib/website";
 
 const empty = (): Omit<WebsiteProduct, "id"> => ({ name: "", inventory_product_id: null, description: "", price: 0,
-  categories: [], subcategory: "", image_url: "", image_urls: [], store_url: "", is_active: true,
+  categories: [], subcategory: "", image_url: "", image_urls: [], detail_image_urls: [], store_url: "", is_active: true,
   is_best: false, is_new: false, sort_order: 0 });
 const input = "w-full border border-gray-300 rounded-lg p-2.5 bg-white";
 const button = "border rounded-lg px-4 py-2 bg-white disabled:opacity-50";
@@ -44,7 +45,7 @@ export default function WebsiteProductsPage() {
   useEffect(() => { void load(); void refreshInventory(); }, [load, refreshInventory]);
 
   function edit(p?: WebsiteProduct) {
-    setEditing(p?.id ?? null); setForm(p ? { ...p } : empty()); setError(""); setMessage("");
+    setEditing(p?.id ?? null); setForm(p ? { ...p, detail_image_urls: p.detail_image_urls ?? [] } : empty()); setError(""); setMessage("");
   }
   function importInventory(id: number | null) {
     const p = inventory.find(p => p.id === id);
@@ -60,16 +61,6 @@ export default function WebsiteProductsPage() {
         method: editing === null ? "POST" : "PUT", body: JSON.stringify(form),
       });
       setEditing(undefined); await load(); setMessage("홈페이지에 상품 정보를 반영했습니다.");
-    } catch (e) { setError((e as Error).message); }
-    finally { setBusy(false); }
-  }
-  async function upload(file: File, main: boolean) {
-    if (file.size > 4 * 1024 * 1024) { setError("이미지는 4MB 이하로 선택해주세요."); return; }
-    setBusy(true); setError("");
-    try {
-      const body = new FormData(); body.append("file", file);
-      const data = await websiteApi<{ url: string }>("/upload", { method: "POST", body });
-      setForm(f => main ? { ...f, image_url: data.url } : { ...f, image_urls: [...f.image_urls, data.url] });
     } catch (e) { setError((e as Error).message); }
     finally { setBusy(false); }
   }
@@ -106,14 +97,7 @@ export default function WebsiteProductsPage() {
           <option value="">없음</option>{Object.entries(WEBSITE_SUBCATEGORIES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
         <label className="block">상품 설명<textarea rows={6} className={input} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} /></label>
         <label className="block">스마트스토어 구매 링크<input type="url" className={input} value={form.store_url} onChange={e => setForm({ ...form, store_url: e.target.value })} /></label>
-        <div className="space-y-2"><label className="block">대표 이미지 주소<input className={input} value={form.image_url} onChange={e => setForm({ ...form, image_url: e.target.value })} /></label>
-          <label className="block">대표 이미지 업로드<input className="block mt-1" type="file" accept="image/*" onChange={e => { const file = e.target.files?.[0]; if (file) void upload(file, true); e.target.value = ""; }} /></label>
-          {form.image_url && <img src={websiteImage(form.image_url)} alt="대표 이미지 미리보기" className="h-36 w-36 object-contain border" />}</div>
-        <div className="space-y-2"><label>상세 이미지 업로드<input className="block mt-1" type="file" accept="image/*" onChange={e => { const file = e.target.files?.[0]; if (file) void upload(file, false); e.target.value = ""; }} /></label>
-          {form.image_urls.map((url, i) => <div key={i} className="flex gap-2 items-center"><img src={websiteImage(url)} alt={`상세 이미지 ${i + 1}`} className="h-20 w-20 object-contain" />
-            <input aria-label={`상세 이미지 ${i + 1} 주소`} className={input} value={url} onChange={e => setForm({ ...form, image_urls: form.image_urls.map((u, n) => n === i ? e.target.value : u) })} />
-            <button type="button" className={button} onClick={() => setForm({ ...form, image_urls: form.image_urls.filter((_, n) => n !== i) })}>제거</button></div>)}
-          <button type="button" className={button} onClick={() => setForm({ ...form, image_urls: [...form.image_urls, ""] })}>상세 이미지 주소 추가</button></div>
+        <WebsiteImagesEditor value={form} onChange={images => setForm(f => ({...f, ...images}))} onBusy={setBusy} onError={setError} />
         <div className="flex flex-wrap gap-4">{([['is_active', '홈페이지 공개'], ['is_best', 'BEST'], ['is_new', 'NEW']] as const).map(([key, label]) =>
           <label key={key}><input type="checkbox" checked={form[key]} onChange={e => setForm({ ...form, [key]: e.target.checked })} /> {label}</label>)}</div>
         <label className="block">정렬 순서<input type="number" className={input} value={form.sort_order} onChange={e => setForm({ ...form, sort_order: Number(e.target.value) })} /></label>
@@ -126,7 +110,7 @@ export default function WebsiteProductsPage() {
       {loading && <p role="status">상품 목록을 불러오는 중…</p>}
       {loaded && <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="text-left"><th>상품</th><th>재고 연결</th><th>판매가격</th><th>공개</th><th>관리</th></tr></thead>
         <tbody>{products.filter(p => p.name.toLowerCase().includes(query.toLowerCase())).map(p => <tr key={p.id} className="border-t">
-          <td className="py-4">{p.name}</td><td>{p.inventory_product_id ? `제품 #${p.inventory_product_id}` : "홈페이지 전용"}</td><td>{p.price.toLocaleString()}원</td><td>{p.is_active ? "공개" : "비공개"}</td>
+          <td className="py-4"><div className="flex items-center gap-3">{p.image_url && <img src={websiteImage(p.image_url)} alt="" className="h-14 w-16 rounded border object-contain" loading="lazy" />}<div>{p.name}<p className="mt-1 text-xs text-gray-500">촬영 {p.image_urls.length + (p.image_url ? 1 : 0)}장 · 상세 {p.detail_image_urls?.length ?? 0}장</p></div></div></td><td>{p.inventory_product_id ? `제품 #${p.inventory_product_id}` : "홈페이지 전용"}</td><td>{p.price.toLocaleString()}원</td><td>{p.is_active ? "공개" : "비공개"}</td>
           <td><button className={button} onClick={() => edit(p)} disabled={busy}>수정</button></td></tr>)}</tbody></table>
           {!products.length && <p className="py-5">등록된 홈페이지 상품이 없습니다.</p>}</div>}
     </div>

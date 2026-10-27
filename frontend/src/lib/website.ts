@@ -18,7 +18,7 @@ export const ORDER_STATES: Record<string, string> = {
   pending: "접수", confirmed: "확인", shipped: "출고", done: "완료", canceled: "취소",
 };
 export const WEBSITE_CATEGORIES: Record<string, string> = { dial: "다이얼", lace: "끈", velcro: "벨크로", inch4: "4인치", inch5: "5인치", inch6: "6인치" };
-export const WEBSITE_SUBCATEGORIES: Record<string, string> = { nonslip: "난슬립", rubber: "러버", insulated: "절연" };
+export const WEBSITE_SUBCATEGORIES: Record<string, string> = { nonslip: "난슬립", rubber: "러버", waterproof: "방수", insulated: "절연" };
 
 export async function websiteApi<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
